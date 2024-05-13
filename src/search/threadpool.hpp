@@ -47,7 +47,7 @@ public:
             std::string top_move = "";
             while (std::chrono::high_resolution_clock::now() < end) {
                 std::this_thread::sleep_for(std::chrono::seconds(1));
-                if (rootNode->visits.load() > 1000 * i) {
+                if (rootNode->visits.load() > growth_before_check * i) {
                     ++i;
                     int max_visits = 0;
                     int second_to_max_visits = 0;
