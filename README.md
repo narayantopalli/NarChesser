@@ -3,7 +3,7 @@ credit for move generation: [https://disservin.github.io/chess-library/](url)
 inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Zero - [https://github.com/LeelaChessZero/](url)
 
 
-Instructions:
+**Instructions:**
 
 -Download CUDA 12.1 and 11.8
 
@@ -17,7 +17,7 @@ Instructions:
 
 
 
-Notes:
+**Notes:**
 
 -This engine plays at roughly 1500-2000 elo with 60 seconds of thinking time
 
