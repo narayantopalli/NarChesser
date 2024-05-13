@@ -13,7 +13,7 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 
 -After Compiling with MSVC place the params.txt in the Debug folder
 
--Inside the params.txt change the model directory to the directory outside the folder where your models are located
+-Inside the params.txt change the model directory to the directory outside the folders where each of your models are located
 
 -Folder with model should be named current_model, while adding an old_model directory is optional
 
