@@ -1,0 +1,13 @@
+model_directory=...enter directory
+resign_eval_threshold=0.90
+temperature_start=0.75
+temperature_end=0.10
+root_dirichlet_alpha=0.30
+root_dirichlet_epsilon=0.25
+cpuct_base=18368.0
+cpuct_init=2.147
+cpuct_factor=2.815
+checks_before_move=3
+growth_before_check=1000
+thread_count=4
+transposition_table_size=10000000
