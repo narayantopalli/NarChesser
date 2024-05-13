@@ -9,7 +9,7 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 
 -Download CUDA 12.1 and 11.8
 
--Download Libtorch Debug version
+-Download Libtorch Debug version and place "libtorch" folder in same directory as NarChesser
 
 -After Compiling with MSVC place the params.txt in the Debug folder
 
