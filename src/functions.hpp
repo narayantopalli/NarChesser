@@ -63,5 +63,5 @@ std::unordered_map<T, float> applyDirichletNoise(const std::unordered_map<T, flo
 }
 
 inline float probability_to_centipawn(float probability) {
-    return static_cast<float>(static_cast<int>(2.5*atanh(probability)*100))/100;
+    return static_cast<float>(static_cast<int>(2.5*atanh(1.2*pow(probability, 1.4))*100))/100;
 }
