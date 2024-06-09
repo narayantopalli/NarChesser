@@ -39,6 +39,7 @@ void SelfPlay::selfPlayGame() {
     std::ofstream PolicyLabels(directoryPath + "/policy.bin", std::ios::binary | std::ios::app);
     std::ofstream ValueLabels(directoryPath + "/q_values.bin", std::ios::binary | std::ios::app);
 
+    uint8_t progress = 0;
     for (int turns = 0; turns < 256; ++turns) {
         if (turns%19 == 0) {
             std::cout << "game-" + std::to_string(index) + ", resign_threshold: "+ std::to_string(res_threshold) + ", move: " + std::to_string(turns+1) + '\n';
@@ -47,7 +48,7 @@ void SelfPlay::selfPlayGame() {
             std::cout << ".\n";
         }
         Container container;
-        auto rootNode = new Node(container, startState);
+        auto rootNode = new Node(container, startState, progress);
         auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, 
                             sims_per_move, 1, nn_cache_size, false, tactic_bonus);
         if (turns == 30) {temperature = temperature_end;}
@@ -63,6 +64,7 @@ void SelfPlay::selfPlayGame() {
             policyBuffer.push_back(policy[j]);
         }
         auto move = newSearch.selectMove(false, temperature, res_threshold);
+        progress = newSearch.rootNode->moves_since_cpm;
         
         if (move.second != -1) {
             if (move.second != 1 && startState.sideToMove() == chess::Color::BLACK) {

@@ -148,7 +148,7 @@ void process_game_file(const std::filesystem::path& path, const std::vector<floa
         int res = color_to_result(vis->boards[i].sideToMove(), vis->game_result);
 
         float temperature;
-        if (i < 30) {temperature = 0.5; }
+        if (i < 30) {temperature = 0.75; }
         else if (i >= 30) {temperature = 0.1; }
 
         float epsilon = pow(0.3, temperature);

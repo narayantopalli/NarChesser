@@ -166,7 +166,7 @@ std::pair<chess::Move, int> Search::selectMove(const bool verbose, double temper
                     break;
                 }
             }
-            std::cout << "Move: " << child->move << ", Visits: " << child->visits << ", Policy: " << child->policy << ", Value: " << child->value/child->visits << ", PUCT Value: " << child->puct_value() << '\n';
+            std::cout << "Move: " << child->move << ", Visits: " << child->visits << ", Policy: " << child->policy << ", Value: " << child->value/child->visits << ", PUCT Value: " << child->puct_value() << ", M/S CPM: " << static_cast<int>(child->moves_since_cpm) << ", " << child->progress_mult << '\n';
         }
         nodes.push_back(child);
         probabilities.push_back(std::pow((static_cast<long double>(child->visits.load())/static_cast<long double>(num_simulations)), static_cast<long double>(1/temperature)));

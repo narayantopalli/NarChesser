@@ -2,9 +2,10 @@
 
 
 
-Node::Node(Container& container, chess::Board state, chess::Move move, std::vector<Node*> prev_list, float policy)
-    : state(state), move(move), prev_list(prev_list), policy(policy) {
+Node::Node(Container& container, chess::Board state, uint8_t moves_since_cpm, chess::Move move, std::vector<Node*> prev_list, float policy)
+    : state(state), move(move), prev_list(prev_list), policy(policy), moves_since_cpm(moves_since_cpm) {
         container.push(this);
+        progress_mult = cpmToMult(moves_since_cpm);
     }
 
 std::pair<bool, float> Node::get_terminal_val() const {
@@ -24,10 +25,17 @@ std::pair<bool, float> Node::get_terminal_val() const {
 void Node::expand(chess::Move newMove, float policy, Container& container) {
     std::lock_guard<std::mutex> guard(expand_lock);
     auto stateCopy = state;
+    uint8_t progress;
+    if (stateCopy.isCapture(newMove) || stateCopy.at(newMove.from()) == chess::PieceType::PAWN) {
+        progress = 0;
+    } else {
+        progress = moves_since_cpm + 1;
+    }
+
     stateCopy.makeMove(newMove);
     auto new_prevs = prev_list;
     new_prevs.emplace_back(this);
-    children.emplace_back(new Node(container, stateCopy, newMove, new_prevs, policy));
+    children.emplace_back(new Node(container, stateCopy, progress, newMove, new_prevs, policy));
 }
 
 void Node::backpropagate(float val, Container& container) {

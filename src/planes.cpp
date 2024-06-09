@@ -30,7 +30,7 @@ std::unique_ptr<Bitboard[]> planes::toPlane(const Board& board, Color color) {
 }
 
 std::unique_ptr<Bitboard[]> planes::extraPlanes(const Board& board) {
-    auto plane = std::make_unique<Bitboard[]>(8);
+    auto plane = std::make_unique<Bitboard[]>(6);
     const Board& position = board; // Use const reference to avoid copying
     Color color = position.sideToMove();
     Bitboard colorBoard;
@@ -38,24 +38,24 @@ std::unique_ptr<Bitboard[]> planes::extraPlanes(const Board& board) {
     Bitboard p1Q;
     Bitboard p2K;
     Bitboard p2Q;
-    Bitboard p1A;
-    Bitboard p2A;
+    // Bitboard p1A;
+    // Bitboard p2A;
     Bitboard enPassant;
 
-    for (int s = 0; s < 64; ++s) {
-        if (position.isAttacked(static_cast<chess::Square>(s), color)) {
-            p1A.set(s);
-        }
-        if (position.isAttacked(static_cast<chess::Square>(s), ~color)) {
-            p2A.set(s);
-        }
-    }
+    // for (int s = 0; s < 64; ++s) {
+    //     if (position.isAttacked(static_cast<chess::Square>(s), color)) {
+    //         p1A.set(s);
+    //     }
+    //     if (position.isAttacked(static_cast<chess::Square>(s), ~color)) {
+    //         p2A.set(s);
+    //     }
+    // }
 
-    if (color == Color::BLACK) {
-        colorBoard =~ colorBoard;
-        p1A = p1A.reverseRanks();
-        p2A = p2A.reverseRanks();
-    }
+    // if (color == Color::BLACK) {
+    //     colorBoard =~ colorBoard;
+    //     p1A = p1A.reverseRanks();
+    //     p2A = p2A.reverseRanks();
+    // }
 
     const chess::Board::CastlingRights castlingRights = position.castlingRights();
     if (castlingRights.has(color, chess::Board::CastlingRights::Side::KING_SIDE)) {p1K =~ p1K;}
@@ -73,9 +73,9 @@ std::unique_ptr<Bitboard[]> planes::extraPlanes(const Board& board) {
     plane[2] = p1Q;
     plane[3] = p2K;
     plane[4] = p2Q;
-    plane[5] = p1A;
-    plane[6] = p2A;
-    plane[7] = enPassant;
+    // plane[5] = p1A;
+    // plane[6] = p2A;
+    plane[5] = enPassant;
 
     return plane;
 }

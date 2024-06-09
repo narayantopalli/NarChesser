@@ -82,7 +82,7 @@ void testPosition(torch::jit::script::Module& nnet, torch::Device device) {
 
     std::cout << startState << "\n";
     Container container;
-    auto rootNode = new Node(container, startState);
+    auto rootNode = new Node(container, startState, 0);
     auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, true, false);
     newSearch.startSearch(true, true, std::chrono::seconds(time_per_move));
 
@@ -130,6 +130,7 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
     unsigned int num_simulations = 10000, nn_cache_size = 256;
 
     std::cout << startState << "\n";
+    uint8_t progress = 0;
     for (int turns = 0; turns < 256; ++turns) {
         while (!myTurn) {
             // basic turn dynamics
@@ -138,6 +139,11 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
             std::cin >> move;
             try {
                 Move m = uci::parseSan(startState, move);
+                if (startState.isCapture(m) || startState.at(m.from()) == chess::PieceType::PAWN) {
+                    progress = 0;
+                } else {
+                    progress += 1;
+                }
                 startState.makeMove(m);
                 traversed.push_back(startState);
                 std::cout << startState << "\n";
@@ -148,7 +154,7 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
             }
         }
         Container container;
-        auto rootNode = new Node(container, startState);
+        auto rootNode = new Node(container, startState, progress);
         auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, true, false);
         newSearch.startSearch(true, true, std::chrono::seconds(time_per_move));
 
@@ -158,6 +164,7 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
         std::cout << "move made: " << move.first << "\n";
         startState.makeMove(move.first);
         std::cout << startState << "\n";
+        progress = newSearch.rootNode->moves_since_cpm;
         startState = newSearch.rootNode->state;
 
         if (tl) { std::cout << "Engine Top Line:\n" << topLine << ", Evaluation = " << probability_to_centipawn(white_win_prob) << '\n'; }
@@ -220,6 +227,7 @@ void testGame(torch::jit::script::Module& nnet, torch::jit::script::Module& old_
         std::string pgn_moves = "";
         int result = 0;
         bool myTurn = (startState.sideToMove() == p1Color);
+        uint8_t progress = 0;
         for (int turns = 0; turns < 256; ++turns) {
             std::pair<chess::Move, int> move;
             if (turns%2 == 0) {
@@ -227,19 +235,21 @@ void testGame(torch::jit::script::Module& nnet, torch::jit::script::Module& old_
             }
             if (!myTurn) {
                 Container container;
-                auto rootNode = new Node(container, startState);
+                auto rootNode = new Node(container, startState, progress);
                 auto newSearch = Search(rootNode, container, traversed, old_transposition_table, old_nnet, device, num_simulations, thread_count, nn_cache_size, false, false);
                 newSearch.startSearch(true);
                 std::cout << "P2 Turn, eval = " << probability_to_centipawn(newSearch.getQ()*(1-2*static_cast<int>(startState.sideToMove()))) << ", move - ";
                 move = newSearch.selectMove(false, temperature_end, resign_eval_threshold);
+                progress = newSearch.rootNode->moves_since_cpm;
             }
             else if (myTurn) {
                 Container container;
-                auto rootNode = new Node(container, startState);
+                auto rootNode = new Node(container, startState, progress);
                 auto newSearch = Search(rootNode, container, traversed, new_transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, false, false);
                 newSearch.startSearch(true);
                 std::cout << "P1 Turn, eval = " << probability_to_centipawn(newSearch.getQ()*(1-2*static_cast<int>(startState.sideToMove()))) << ", move - ";
                 move = newSearch.selectMove(false, temperature_end, resign_eval_threshold);
+                progress = newSearch.rootNode->moves_since_cpm;
             }
             if (move.second != -1) {
                 if (move.second != 1 && startState.sideToMove() == chess::Color::BLACK) {
@@ -348,9 +358,11 @@ int main() {
     try {
         nnet = torch::jit::load(model_path);
         std::cout << "Model loaded successfully\n";
-        // auto forward_method = nnet.get_method("forward");
-        // std::cout << "Forward method graph: \n";
-        // std::cout << forward_method.graph()->toString() << std::endl;
+        // // Print the graph for each method
+        // for (const auto& method : nnet.get_methods()) {
+        //     std::cout << "Method: " << method.name() << std::endl;
+        //     std::cout << method.graph()->toString() << std::endl;
+        // }
 
     } catch (const c10::Error& e) {
         std::cerr << "LibTorch error loading the model: " << e.what() << std::endl;

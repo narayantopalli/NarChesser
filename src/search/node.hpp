@@ -26,6 +26,8 @@ struct Node {
     float policy = 0.0f;
     std::atomic<int> visits = 0;
     float value = 0.0f;
+    uint8_t moves_since_cpm;
+    float progress_mult = 1.0f;
     chess::Move move;
     chess::Board state;
     std::mutex lock;
@@ -38,12 +40,13 @@ struct Node {
 
     inline Node* getParent() const;
     inline uint8_t getDepth() const;
-    Node(Container& container, chess::Board state, chess::Move move = chess::Move::NULL_MOVE, std::vector<Node*> prev_list = {}, float policy = 0.0f);
+    Node(Container& container, chess::Board state, uint8_t moves_since_cpm, chess::Move move = chess::Move::NULL_MOVE, std::vector<Node*> prev_list = {}, float policy = 0.0f);
     inline float puct_value(float v_loss_c = 1.0f);
     inline bool is_leaf_node() const;
     std::pair<bool, float> get_terminal_val() const;
     void expand(chess::Move newMove, float policy, Container& container);
     inline void addToVal(float val);
+    inline float cpmToMult(const uint8_t moves_since_cpm) const;
     void backpropagate(float val, Container& container);
 
 };
@@ -69,10 +72,10 @@ struct Container {
         }
 
         std::list<Node*>::iterator removeNode(const std::list<Node*>::iterator it) {
-            delete *it;  // Delete the node pointed to by the iterator
-            *it = nullptr;  // Nullify the pointer to avoid using a dangling pointer
-            std::list<Node*>::iterator nextIt = list.erase(it);  // Erase the element from the list and get the next iterator
-            return nextIt;  // Return the next valid iterator
+            delete *it;
+            *it = nullptr;
+            std::list<Node*>::iterator nextIt = list.erase(it);
+            return nextIt;
         }
 
         uint32_t size() const {
@@ -114,7 +117,7 @@ inline float Node::puct_value(float v_loss_c) {
         return std::numeric_limits<float>::max();
     }
     float ucb = cpuct(visits) * policy * std::sqrt(static_cast<float>(getParent()->visits)) / (1 + visits);
-    return ((value - v_loss_c * virtual_loss.load())/ visits) + ucb;
+    return ((value*progress_mult - v_loss_c * virtual_loss.load())/ visits) + ucb;
 }
 
 inline bool Node::is_leaf_node() const {
@@ -124,4 +127,9 @@ inline bool Node::is_leaf_node() const {
 inline void Node::addToVal(float val) {
     std::lock_guard<std::mutex> guard(add_lock);
     value+=val;
+}
+
+inline float Node::cpmToMult(const uint8_t moves_since_cpm) const {
+    uint8_t interval = 100 - std::min(100, static_cast<int>(moves_since_cpm));
+    return 1.0/(1.0 + exp(0.08*(25.0-static_cast<float>(interval))));
 }

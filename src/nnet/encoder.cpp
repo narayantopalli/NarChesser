@@ -3,7 +3,7 @@
 // Function to encode the state of a chess board into an array of Bitboards
 EncodedState::EncodedState(const Node* node, const std::vector<chess::Board>& traversed, const uint8_t history) : history(history) {
 
-    totalPlanes = 14 * history + 8;
+    totalPlanes = 14 * history + 6;
     encodedState = std::make_unique<Bitboard[]>(totalPlanes);
     auto index = 0;
     auto a = planes::toPlane(node->state, node->state.sideToMove());
@@ -46,7 +46,7 @@ EncodedState::EncodedState(const Node* node, const std::vector<chess::Board>& tr
         }
     }
     auto c = planes::extraPlanes(node->state);
-    for (uint8_t i = 0; i < 8; ++i) {
+    for (uint8_t i = 0; i < 6; ++i) {
         encodedState[index] = c[i];
         ++index;
     }
