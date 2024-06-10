@@ -25,3 +25,5 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 </p>
 </body>
 </html>
+
+![](black.gif)
