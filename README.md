@@ -25,4 +25,6 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 
 
 **Playing Black**
+
+
 <img src="black.gif" width="256" height="256">
