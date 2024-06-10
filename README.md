@@ -14,7 +14,7 @@
             background-color: black;
             position: absolute;
             left: 0;
-            bottom: -5px; /* Adjust the position as needed */
+            bottom: -5px;
         }
     </style>
 </head>
