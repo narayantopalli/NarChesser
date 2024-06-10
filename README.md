@@ -1,4 +1,3 @@
-
 <h1 class="title">NarChesser - A transformer based chess engine</h1>
 <p class="body"> 
 
@@ -8,8 +7,6 @@ Move generation: [https://disservin.github.io/chess-library/](url)
 
 Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Zero - [https://github.com/LeelaChessZero/](url)
 </p>
-
-
 
 <p class="body">
 
