@@ -22,6 +22,5 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 -Folder with model should be named current_model, while adding an old_model directory is optional
 </p>
 </body>
-</html>
 
-![](black.gif)
+<img src="black.gif" width="256" height="256">
