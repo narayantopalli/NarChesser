@@ -1,6 +1,7 @@
 
 <h1 class="title">NarChesser - A transformer based chess engine</h1>
-<p class="body">        
+<p class="body"> 
+
 **Credits:**
 
 Move generation: [https://disservin.github.io/chess-library/](url)
@@ -9,6 +10,7 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 </p>
 
 <p class="body">
+
 **Instructions:**
 
 -Download CUDA 12.1 and 11.8
