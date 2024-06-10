@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <body>
-    <h1 class="title">Title Text</h1>
+    <h1 class="title">NarChesser - A transformer based chess engine</h1>
     <p class="body">
         
 **Credits:**
