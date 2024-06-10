@@ -48,13 +48,15 @@ class MultiHeadAttention(nn.Module):
         attention = torch.matmul(q, k.transpose(-2, -1)) / torch.sqrt(dk)
         p_enc = self.p_enc(x)
         attention = F.softmax(attention + p_enc, dim=-1)
-        attention_head0 = attention[0][0].detach().cpu().numpy()
-        files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-        for i in range(8, 16):
-            print(files[i % 8], i // 8 + 1)
-            plt.imshow(attention_head0[i].reshape(8, 8))
-            plt.scatter([i % 8], [i // 8], c='red', s=100)
-            plt.show()
+
+        # # visualize head 0 attention
+        # attention_head0 = attention[0][0].detach().cpu().numpy()
+        # files = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+        # for i in range(8, 16):
+        #     print(files[i % 8], i // 8 + 1)
+        #     plt.imshow(attention_head0[i].reshape(8, 8))
+        #     plt.scatter([i % 8], [i // 8], c='red', s=100)
+        #     plt.show()
         out = torch.matmul(attention, v)
 
         out = out.permute(0, 2, 1, 3).reshape(-1, self.seq_len, self.head_dim * self.num_heads)
