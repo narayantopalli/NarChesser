@@ -22,6 +22,6 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 -Inside the params.txt change the model directory to the directory outside the folders where each of your models are located
 
 -Folder with model should be named current_model, while adding an old_model directory is optional
-</h1>
+</h2>
 </body>
 </html>
