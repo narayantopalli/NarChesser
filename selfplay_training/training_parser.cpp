@@ -38,7 +38,6 @@ class MyVisitor : public pgn::Visitor {
     std::vector<Move> moves;
 };
 
-// Function declarations
 void process_value_file(const std::filesystem::path& path, std::vector<float>& values);
 void process_policy_file(const std::filesystem::path& policy_file_path, const std::string& output_file_path);
 void process_game_file(const std::filesystem::path& path, const std::vector<float>& values);
@@ -67,22 +66,19 @@ void process_value_file(const std::filesystem::path& value_file_path, std::vecto
 
 // Processing policy file
 void process_policy_file(const std::filesystem::path& policy_file_path, const std::string& output_file_path) {
-    // Open input binary file for reading
     std::ifstream policy_file_stream(policy_file_path, std::ios::binary);
     if (!policy_file_stream.is_open()) {
         std::cerr << "Failed to open policy file: " << policy_file_path << std::endl;
         return;
     }
 
-    // Open output binary file for appending
     std::ofstream PolicyLabelsFile(output_file_path, std::ios::binary | std::ios::app);
     if (!PolicyLabelsFile.is_open()) {
         std::cerr << "Failed to open output file: " << output_file_path << std::endl;
         return;
     }
 
-    // Read from policy file and write to output file
-    constexpr size_t BUFFER_SIZE = 49152;  // Buffer size can be adjusted based on expected file sizes
+    constexpr size_t BUFFER_SIZE = 49152;
     char buffer[BUFFER_SIZE];
 
     while (policy_file_stream.read(buffer, BUFFER_SIZE)) {
@@ -91,7 +87,6 @@ void process_policy_file(const std::filesystem::path& policy_file_path, const st
     // Write any remaining part of the file
     PolicyLabelsFile.write(buffer, policy_file_stream.gcount());
 
-    // Check for errors in reading or writing
     if (policy_file_stream.bad()) {
         std::cerr << "I/O error while reading from policy file." << std::endl;
     }
@@ -174,22 +169,16 @@ int main(int argc, char const *argv[]) {
     try {
         // Check if the base path exists and is a directory
         if (std::filesystem::exists(base_path) && std::filesystem::is_directory(base_path)) {
-            // Iterate over each entry in the base directory (first level of folders)
             for (const auto& first_level_entry : std::filesystem::directory_iterator(base_path)) {
-
                 if (std::filesystem::is_directory(first_level_entry.status())) {
-                    // Print the second level directory being processed
-                    int count = 0; // Counter for processed games within the second-level directory
-                    // Iterate over each entry in the first-level directory (second level of folders)
+                    int count = 0;
                     for (const auto& second_level_entry : std::filesystem::directory_iterator(first_level_entry.path())) {
                         if (std::filesystem::is_directory(second_level_entry.status())) {
 
-                            // Process each game directory within the second-level directory
                             parse_game(second_level_entry.path());
                             count++;
                         }
                     }
-                    // Print the number of processed games in the second-level directory
                     std::cout << "Processed " << count << " games in directory: " << first_level_entry.path() << std::endl;
                 }
             }

@@ -116,7 +116,9 @@ inline float Node::puct_value(float v_loss_c) {
         }
         return std::numeric_limits<float>::max();
     }
+
     float ucb = cpuct(visits) * policy * std::sqrt(static_cast<float>(getParent()->visits)) / (1 + visits);
+
     return ((value*progress_mult - v_loss_c * virtual_loss.load())/ visits) + ucb;
 }
 

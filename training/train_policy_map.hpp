@@ -85,8 +85,6 @@ constexpr PolicyMap initializePolicyMap() {
         }
     }
 
-    // Here, we would initialize the policy map with static values if applicable.
-    // Dynamic probability assignments based on game state cannot be done at compile time.
     return policyMap;
 }
 

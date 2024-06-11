@@ -26,9 +26,13 @@ void Node::expand(chess::Move newMove, float policy, Container& container) {
     std::lock_guard<std::mutex> guard(expand_lock);
     auto stateCopy = state;
     uint8_t progress;
-    if (stateCopy.isCapture(newMove) || stateCopy.at(newMove.from()) == chess::PieceType::PAWN) {
+    if (stateCopy.isCapture(newMove)) {
         progress = 0;
-    } else {
+    } 
+    else if (stateCopy.at(newMove.from()) == chess::PieceType::PAWN) {
+        progress = 0;
+    }
+    else {
         progress = moves_since_cpm + 1;
     }
 

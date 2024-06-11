@@ -2,6 +2,7 @@
 
 #include <cmath>
 #include <string>
+#include "../functions.hpp"
 
 extern std::string model_directory;
 
@@ -17,7 +18,7 @@ extern float cpuct_base;
 extern float cpuct_init;
 extern float cpuct_factor;
 
-inline float cpuct(int visits) {return cpuct_init + cpuct_factor * log((visits + cpuct_base) / cpuct_base);}
+inline float cpuct(int visits) {return cpuct_init + cpuct_factor * fast_log((visits + cpuct_base) / cpuct_base);}
 
 extern int checks_before_move;
 extern int growth_before_check;

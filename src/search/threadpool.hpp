@@ -37,6 +37,7 @@ public:
         condition.notify_one();
     }
     
+    // applies early stopping logic by checking 1st derivative of best move visits advantage
     void stopAfter(std::chrono::duration<int> const& duration, const Node* rootNode) {
         std::thread([this, duration, rootNode]() {
             auto start = std::chrono::high_resolution_clock::now();

@@ -28,20 +28,19 @@ namespace model {
 
         auto outputs = module.forward(inputs).toTuple()->elements();
 
-        // Assuming the model returns a tuple of two tensors for each input
         torch::Tensor policy_output = outputs.at(0).toTensor().to(torch::kCPU);
         torch::Tensor value_output = outputs.at(1).toTensor().to(torch::kCPU);
 
-        // Prepare the container for the results
         std::queue<std::pair<torch::Tensor, torch::Tensor>> results;
 
-        // Iterate over each item in the batch to pair it with its corresponding outputs
         for (unsigned int i = 0; i < batch.size(0); ++i) {
             auto individual_policy = policy_output[i];
             auto individual_value = value_output[i];
 
             results.push(std::make_pair(individual_policy, individual_value));
         }
+
+        // needed to avoid memory leak!
         policy_output.reset();
         value_output.reset();
 

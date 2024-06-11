@@ -14,7 +14,7 @@ namespace planes {
 
 std::unique_ptr<Bitboard[]> planes::toPlane(const Board& board, Color color) {
     auto plane = std::make_unique<Bitboard[]>(14);
-    const Board& position = board; // Use const reference to avoid copying
+    const Board& position = board;
     Bitboard repetition1;
     Bitboard repetition2;
     if (position.isRepetition(1)) {
@@ -43,7 +43,7 @@ std::unique_ptr<Bitboard[]> planes::toPlane(const Board& board, Color color) {
 
 std::unique_ptr<Bitboard[]> planes::extraPlanes(const Board& board) {
     auto plane = std::make_unique<Bitboard[]>(8);
-    const Board& position = board; // Use const reference to avoid copying
+    const Board& position = board;
     Color color = position.sideToMove();
     Bitboard colorBoard;
     Bitboard p1K;

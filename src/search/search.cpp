@@ -1,8 +1,5 @@
 #include "search.hpp"
 
-// Constructor for the Search class. It initializes an instance of the class with the necessary components for performing a search in a chess game. 
-// These components include nodes, containers for storing game states, a transposition table for memoization, a neural network model, 
-// and various configuration parameters like the number of simulations and threads to use.
 Search::Search(Node* rootNode, Container& container, std::vector<chess::Board>& traversed,
                TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>>& transposition_table, 
                torch::jit::script::Module& nnet, torch::Device device, unsigned int num_simulations, 
@@ -19,13 +16,12 @@ chess::Movelist Search::get_moves(const chess::Board& state) const {
 }
 
 // Expands a leaf node in the search tree using the neural network to evaluate the position. 
-// It also updates the transposition table to avoid re-evaluating the same positions.
 void Search::expand_leaf(Node* node, std::unique_lock<std::mutex> lock) {
     // Initialization of the neural network evaluation structure
     std::pair<std::unordered_map<chess::Move, float>, float> nn_eval;
     auto state_hash = node->state.hash();
     if (transposition_table.contains(state_hash)) {
-        // If evaluation exists, use it to expand the node with possible moves
+        // If evaluation exists, use it
         nn_eval = transposition_table.getHash(state_hash);
         auto movelist = get_moves(node->state);
         for (const auto &move : movelist) {
@@ -78,7 +74,7 @@ void Search::expand(Node* node) {
 
     if (terminal.first) {
         guard.unlock();
-        // If the node represents a terminal state (game over), backpropagate the result
+        // If the node represents a terminal state, backpropagate the result
         node->backpropagate(terminal.second, container);
         if (depthVerbose) {checkMaxDepth(node->getDepth());}
     } else {
@@ -193,7 +189,7 @@ std::pair<chess::Move, int> Search::selectMove(const bool verbose, double temper
     return std::make_pair(selection->move, result);
 }
 
-// Updates the tree's root to reflect a move made in the game, essentially progressing the game state.
+// Updates the tree's root to reflect a move made in the game, progressing the game state.
 void Search::makeMove(const chess::Move m) {
     Node* selection;
     for (const auto &child : rootNode->children) {
