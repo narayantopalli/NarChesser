@@ -67,7 +67,7 @@ inline float probability_to_centipawn(float probability) {
     return static_cast<float>(static_cast<int>(1.3*tan(1.57*probability)*100))/100;
 }
 
-// fast log
+// fast log: https://www.flipcode.com/archives/Fast_log_Function.shtml
 inline float fast_log2 (float val)
 {
    int * const    exp_ptr = reinterpret_cast <int *> (&val);
