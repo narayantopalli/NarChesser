@@ -1,9 +1,14 @@
+<h1 class="title">NarChesser - A transformer based chess engine</h1>
+<p class="body"> 
+
 **Credits:**
 
 Move generation: [https://disservin.github.io/chess-library/](url)
 
 Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Zero - [https://github.com/LeelaChessZero/](url)
+</p>
 
+<p class="body">
 
 **Instructions:**
 
@@ -16,14 +21,11 @@ Inspiration: AlphaZero - [https://arxiv.org/abs/1712.01815](url), Leela Chess Ze
 -Inside the params.txt change the model directory to the directory outside the folders where each of your models are located
 
 -Folder with model should be named current_model, while adding an old_model directory is optional
+</p>
+</body>
 
 
+**Playing Black**
 
-**Notes:**
 
--This engine plays at roughly 1500-2000 elo with 60 seconds of thinking time
-
--Right now it doesn't use a position history for the nnet because of overfitting problems
-
--All training has so far been done in the cloud through Google Colab
-
+<img src="black.gif" width="256" height="256">
