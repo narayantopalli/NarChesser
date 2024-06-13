@@ -59,8 +59,9 @@ void testPosition(torch::jit::script::Module& nnet, torch::Device device) {
     std::string start_pos;
     chess::Board startState;
     while (true) {
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << "Start Position Fen (d for default): ";
-        std::cin >> start_pos;
+        std::getline(std::cin, start_pos);
 
         if (start_pos == "d") {
             start_pos = test_positions[0];
@@ -191,8 +192,9 @@ void testGame(torch::jit::script::Module& nnet, torch::jit::script::Module& old_
     std::string start_pos;
     chess::Board startState;
     while (true) {
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
         std::cout << "Start Position Fen (d for default): ";
-        std::cin >> start_pos;
+        std::getline(std::cin, start_pos);
 
         if (start_pos == "d") {
             start_pos = test_positions[0];
