@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def get_attention_map():
+def get_attention_map() -> np.array:
     attention_map = np.zeros(shape=(64, 64))
     for i in range(64):
         rank = i // 8

@@ -18,9 +18,7 @@ include_directories(
 # Add compiler flags as suggested by the Torch configuration.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-# Create an executable for the project. Ensure the path to your source file is correct.
-# If `/src/nnet/test.cpp` is intended to be relative to the project root,
-# ensure that it is specified correctly relative to the CMakeLists.txt file.
+# Create an executable.
 file(GLOB_RECURSE SOURCES "src/*.cpp")
 add_executable(${PROJECT_NAME} ${SOURCES})
 
