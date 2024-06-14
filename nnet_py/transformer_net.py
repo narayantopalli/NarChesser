@@ -16,7 +16,7 @@ class PositionalEncoding(nn.Module):
         self.layerNorm2 = nn.LayerNorm(model_dim)
         self.p_dec = nn.Linear(model_dim, out_dim)
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len, _ = x.size()
         x = self.p_enc(x)
         x = self.layerNorm1(x)
@@ -41,7 +41,7 @@ class MultiHeadAttention(nn.Module):
         self.out_linear = nn.Linear(model_dim, input_dim)
         self.p_enc = PositionalEncoding(input_dim, num_heads, p_enc_dim, seq_len)
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         qkv = self.qkv_linear(x)
         qkv = qkv.view(-1, self.seq_len, self.num_heads, 3 * self.head_dim).permute(0, 2, 1, 3)
         q, k, v = qkv.chunk(3, dim=-1)
@@ -74,7 +74,7 @@ class MultiHeadAttentionModule(nn.Module):
         self.linear2 = nn.Linear(dim_feedforward, input_dim)
         self.layerNorm2 = nn.LayerNorm(input_dim)
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x
         x = self.multi_head_attention(x)
         x = x + residual
@@ -89,7 +89,7 @@ class MultiHeadAttentionModule(nn.Module):
 
 
 class InputEmbedding(nn.Module):
-    def __init__(self, input_dim: int, position_embedding_dim: int, out_embedding_dim: int, seq_len: int, attention_map: torch.tensor) -> None:
+    def __init__(self, input_dim: int, position_embedding_dim: int, out_embedding_dim: int, seq_len: int, attention_map: torch.Tensor) -> None:
         super(InputEmbedding, self).__init__()
         self.input_dim = input_dim
         self.seq_len = seq_len
@@ -103,7 +103,7 @@ class InputEmbedding(nn.Module):
         self.layerNorm2 = nn.LayerNorm(out_embedding_dim)
         self.relu2 = nn.ReLU()
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if x.dim() > 3:
             dim1, dim2, dim3, dim4 = x.size()
             x = x.view(dim1, dim2, dim3 * dim4)
@@ -122,7 +122,7 @@ class InputEmbedding(nn.Module):
 
 
 class PolicyHead(nn.Module):
-    def __init__(self, seq_len: int, input_dim: int, model_dim: int, num_heads: int, policy_dim: int, attention_map: torch.tensor) -> None:
+    def __init__(self, seq_len: int, input_dim: int, model_dim: int, num_heads: int, policy_dim: int, p_enc_dim: int, attention_map: torch.Tensor) -> None:
         super(PolicyHead, self).__init__()
         self.register_buffer('attention_map', attention_map)
         map_dim = attention_map.shape[-1]
@@ -137,13 +137,14 @@ class PolicyHead(nn.Module):
 
         self.kv_linear = nn.Linear(input_dim, model_dim * 2)
         self.q_linear = nn.Linear(map_dim, model_dim)
+        self.p_enc = PositionalEncoding(input_dim, num_heads, p_enc_dim, seq_len)
         self.out_linear = nn.Linear(model_dim, input_dim)
         self.layerNorm = nn.LayerNorm(input_dim)
         self.relu = nn.ReLU()
         self.policy_linear = nn.Linear(input_dim, policy_dim)
         self.flatten_map = nn.Flatten()
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         batch_size, _, _ = x.size()
 
         residual = x
@@ -156,7 +157,10 @@ class PolicyHead(nn.Module):
 
         dk = torch.tensor(q.size(-1), dtype=torch.float32, device=q.device)
         attention = torch.matmul(q, k.transpose(-2, -1)) / torch.sqrt(dk)
-        attention = F.softmax(attention, dim=-1)
+
+        # try to capture tactical dynamics in selecting candidate moves
+        p_enc = self.p_enc(x)
+        attention = F.softmax(attention + p_enc, dim=-1)
         out = torch.matmul(attention, v)
 
         out = out.permute(0, 2, 1, 3).reshape(batch_size, self.seq_len, self.head_dim * self.num_heads)
@@ -184,7 +188,7 @@ class ValueHead(nn.Module):
         self.linear3 = nn.Linear(seq_len, 1)
         self.tanh = nn.Tanh()
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.linear1(x)
         x = self.relu1(x)
         x = x.view(-1, self.seq_len * self.model_dim)
@@ -207,10 +211,10 @@ class TransformerNet(nn.Module):
                                       dim_feedforward) for _ in range(hidden_layers)]
         )
         self.value_head = ValueHead(seq_len, embedding_dim, value_model_dim)
-        self.policy_head = PolicyHead(seq_len, embedding_dim, policy_model_dim, attention_heads, policy_out_dim,
+        self.policy_head = PolicyHead(seq_len, embedding_dim, policy_model_dim, attention_heads, policy_out_dim, positional_encoding_dim,
                                       attention_map)
 
-    def forward(self, x: torch.tensor) -> tuple:
+    def forward(self, x: torch.Tensor) -> tuple:
         x = self.input_embedding(x)
         for attentionBlock in self.attentionBlocks:
             x = attentionBlock(x)
