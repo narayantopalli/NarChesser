@@ -16,16 +16,17 @@ void ConfigParser::parseConfigFile(const std::string& filename) {
             line.erase(line.find_last_not_of(" \t") + 1);
 
             if (line.empty()) continue;
+            else {
+                std::istringstream lineStream(line);
+                std::string key, value;
 
-            std::istringstream lineStream(line);
-            std::string key, value;
-
-            if (std::getline(lineStream, key, '=') && std::getline(lineStream, value)) {
-                key.erase(0, key.find_first_not_of(" \t"));
-                key.erase(key.find_last_not_of(" \t") + 1);
-                value.erase(0, value.find_first_not_of(" \t"));
-                value.erase(value.find_last_not_of(" \t") + 1);
-                configMap[key] = value;
+                if (std::getline(lineStream, key, '=') && std::getline(lineStream, value)) {
+                    key.erase(0, key.find_first_not_of(" \t"));
+                    key.erase(key.find_last_not_of(" \t") + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    value.erase(value.find_last_not_of(" \t") + 1);
+                    configMap[key] = value;
+                }
             }
         }
     }
