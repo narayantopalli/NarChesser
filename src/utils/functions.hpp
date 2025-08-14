@@ -4,9 +4,19 @@
 #include <map>
 #include <cmath>
 #include <limits>
-#include <random>
 #include <numeric>
 #include <unordered_map>
+#include <iostream>
+#include "random.hpp"
+
+// Cross-platform terminal clearing function
+inline void clearTerminal() {
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
 
 template<typename T>
 void pop_front(std::vector<T> &v)
@@ -20,7 +30,7 @@ template<typename T>
 std::unordered_map<T, float> Softmax(std::unordered_map<T, float>& map) {
     std::unordered_map<T, float> newMap;
     float total = 0.0;
-    float maxVal = std::numeric_limits<float>::lowest();
+    float maxVal = -std::numeric_limits<float>::infinity();
 
     // Find the maximum value
     for (const auto& index : map) {
@@ -41,14 +51,12 @@ std::unordered_map<T, float> Softmax(std::unordered_map<T, float>& map) {
 template<typename T>
 std::unordered_map<T, float> applyDirichletNoise(const std::unordered_map<T, float>& probabilities, float alpha, float epsilon) {
     std::unordered_map<T, float> noisyProbabilities; // To hold the noisy probabilities
-    std::mt19937 rng(std::random_device{}()); // Random number generator
     
     // Calculate the sum of gamma samples for normalization
     float sumOfSamples = 0.0;
     std::vector<float> gammaSamples(probabilities.size());
     for (unsigned int i = 0; i < probabilities.size(); ++i) {
-        std::gamma_distribution<float> distribution(alpha, 1.0);
-        gammaSamples[i] = distribution(rng);
+        gammaSamples[i] = randomGamma(alpha, 1.0);
         sumOfSamples += gammaSamples[i];
     }
 

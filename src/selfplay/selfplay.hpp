@@ -11,7 +11,9 @@ struct SelfPlay {
     int nn_cache_size;
     int game_index = 0;
     bool trust_val;
-    bool tactic_bonus;
+    std::map<std::string, std::string> game_info;
+    std::map<std::string, std::string> game_info_old;
+    std::atomic<int> num_moves;
 
     size_t ttable_size;
 
@@ -21,7 +23,7 @@ struct SelfPlay {
     std::mutex indexMutex;
     TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>> transposition_table;
     
-    SelfPlay(int total_games, int sims_per_move, unsigned int threads, float resign_threshold, int nn_cache_size, bool trust_val, torch::jit::script::Module& nnet, torch::Device device, size_t ttable_size, float temperature_start, bool tactic_bonus);
+    SelfPlay(int total_games, int sims_per_move, unsigned int threads, float resign_threshold, int nn_cache_size, bool trust_val, torch::jit::script::Module& nnet, torch::Device device, size_t ttable_size, float temperature_start);
     void selfPlayGame();
     void run();
     inline int getGameIndex();

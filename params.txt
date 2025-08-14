@@ -1,4 +1,4 @@
-model_directory=...
+model_directory=.\models
 resign_eval_threshold=0.80
 temperature_start=0.75
 temperature_end=0.10

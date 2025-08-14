@@ -2,13 +2,12 @@
 
 #include <map>
 #include <thread>
-#include <random>
 #include <cmath>
 #include "node.hpp"
 #include "play_policy_map.hpp"
 #include "transposition_table.hpp"
 #include "threadpool.hpp"
-#include "../functions.hpp"
+#include "../utils/functions.hpp"
 #include "../nnet/encoder.hpp"
 #include "../nnet/nnet.hpp"
 
@@ -29,7 +28,6 @@ class Search {
     unsigned int nn_batch_size;
     const int policySize = PLANES * BOARD_SIZE * BOARD_SIZE;
     bool depthVerbose;
-    bool tactic_bonus;
     const uint8_t position_history;
 
     bool evaluating = false;
@@ -37,7 +35,7 @@ class Search {
 
     Search(Node* rootNode, Container& container, std::vector<chess::Board>& traversed, TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>>& transposition_table, 
         torch::jit::script::Module& nnet, torch::Device device, unsigned int num_simulations, 
-        unsigned int num_threads, unsigned int nn_batch_size, bool depthVerbose = false, bool tactic_bonus = true, const uint8_t position_history = 1);
+        unsigned int num_threads, unsigned int nn_batch_size, bool depthVerbose = false, const uint8_t position_history = 1);
     chess::Movelist get_moves(const chess::Board& state) const;
     void evaluate_nodes();
     void expand_leaf(Node* node, std::unique_lock<std::mutex> lock);
@@ -48,11 +46,11 @@ class Search {
     void makeMove(const chess::Move m);
     void nn_eval_request(const unsigned int batch_size);
     std::pair<std::pair<torch::Tensor, torch::Tensor>, Node*> get_evaluation();
+    float getRootQ() const;
     std::string getTopLine();
     inline void checkMaxDepth(const uint8_t depth);
     inline void startSearch(const bool dirichelet_noise, bool use_time = false, std::chrono::duration<int> const& max_time = std::chrono::seconds(0));
     inline void pushToCache(torch::Tensor state_tensor, Node* node);
-    inline float getQ();
 
     private:
     std::mutex cache_lock;
@@ -92,7 +90,7 @@ inline void Search::checkMaxDepth(const uint8_t depth) {
     std::lock_guard<std::mutex> guard(depth_lock);
     if (depth > max_depth) {
         max_depth = depth;
-        std::cout << "depth: " << static_cast<unsigned int>(max_depth) << ", current tree size: " << container.size() << ", transposition table fillup: " << std::ceil(10000*static_cast<float>(transposition_table.size())/static_cast<float>(transposition_table.max_elements))/100 << "%" << '\n';
+        std::cout << "\rDEPTH: " << static_cast<unsigned int>(max_depth) << ", NODES: " << container.size() << ", TTF: " << std::ceil(10000*static_cast<float>(transposition_table.size())/static_cast<float>(transposition_table.max_elements))/100 << "%" << std::flush;
     }
 }
 
@@ -102,12 +100,12 @@ inline void Search::startSearch(const bool dirichelet_noise, bool use_time, std:
     nn_eval_request(1);
 }
 
-inline float Search::getQ() {
+inline float Search::getRootQ() const {
     auto total_visits = 0;
     float total_value = 0.0f;
     for (const auto& child : rootNode->children) {
         total_visits += child->visits.load();
-        total_value += child->value;
+        total_value += child->val_sum.load();
     }
     return total_value/static_cast<float>(total_visits);
 }

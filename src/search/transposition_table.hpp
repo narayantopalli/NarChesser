@@ -32,13 +32,14 @@ public:
     }
 
     V getHash(const K key) {
-        std::unique_lock<std::mutex> lock(guard);
-        auto it = std::find(keys.begin(), keys.end(), key);
-        if (it != keys.end()) {
-            // Move the key to the end to mark it as recently used
-            keys.erase(it);
-            keys.push_back(key);
-        }
+        // REMOVED FOR PERFORMANCE
+        // std::unique_lock<std::mutex> lock(guard);
+        // auto it = std::find(keys.begin(), keys.end(), key);
+        // if (it != keys.end()) {
+        //     // Move the key to the end to mark it as recently used
+        //     keys.erase(it);
+        //     keys.push_back(key);
+        // }
         return table[key];
     }
 

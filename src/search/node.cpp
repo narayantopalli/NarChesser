@@ -26,8 +26,10 @@ void Node::expand(chess::Move newMove, float policy, Container& container) {
     std::lock_guard<std::mutex> guard(expand_lock);
     auto stateCopy = state;
     uint8_t progress;
+    // bool check_or_cap = false;
     if (stateCopy.isCapture(newMove)) {
         progress = 0;
+        // check_or_cap = true;
     } 
     else if (stateCopy.at(newMove.from()) == chess::PieceType::PAWN) {
         progress = 0;
@@ -37,6 +39,7 @@ void Node::expand(chess::Move newMove, float policy, Container& container) {
     }
 
     stateCopy.makeMove(newMove);
+    // check_or_cap = stateCopy.inCheck();
     auto new_prevs = prev_list;
     new_prevs.emplace_back(this);
     children.emplace_back(new Node(container, stateCopy, progress, newMove, new_prevs, policy));

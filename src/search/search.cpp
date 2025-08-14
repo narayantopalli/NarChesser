@@ -1,12 +1,13 @@
 #include "search.hpp"
+#include "../utils/random.hpp"
 
 Search::Search(Node* rootNode, Container& container, std::vector<chess::Board>& traversed,
                TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>>& transposition_table, 
                torch::jit::script::Module& nnet, torch::Device device, unsigned int num_simulations, 
-               unsigned int num_threads, unsigned int nn_batch_size, bool depthVerbose, bool tactic_bonus, const uint8_t position_history)
+               unsigned int num_threads, unsigned int nn_batch_size, bool depthVerbose, const uint8_t position_history)
     : rootNode(rootNode), container(container), traversed(traversed), transposition_table(transposition_table), 
       nnet(nnet), device(device), num_simulations(num_simulations + 1), num_threads(num_threads), 
-      nn_batch_size(nn_batch_size), threadManager(*this), depthVerbose(depthVerbose), tactic_bonus(tactic_bonus), position_history(position_history) {}
+      nn_batch_size(nn_batch_size), threadManager(*this), depthVerbose(depthVerbose), position_history(position_history) {}
 
 // Retrieves all legal chess moves for a given board state. This is used to determine possible next moves from any given position.
 chess::Movelist Search::get_moves(const chess::Board& state) const {
@@ -27,15 +28,17 @@ void Search::expand_leaf(Node* node, std::unique_lock<std::mutex> lock) {
         for (const auto &move : movelist) {
             node->expand(move, nn_eval.first[move], container);
         }
-        node->in_nnet = false;
-        node->nnet_cv.notify_all();
+        node->in_nnet.store(false);
         lock.unlock();
+        node->nnet_cv.notify_all();
+        // std::cout << "Thread " << std::this_thread::get_id() << " notified all!\n";
         node->backpropagate(nn_eval.second, container);
         if (depthVerbose) {checkMaxDepth(node->getDepth());}
     } else {
         // Otherwise, mark the node for neural network evaluation
         lock.unlock();
         if (depthVerbose) {checkMaxDepth(node->getDepth());}
+        node->in_nnet.store(true);
         pushToCache(EncodedState(node, traversed, position_history).toTensor(), node);
         nn_eval_request(nn_batch_size);
     }
@@ -57,6 +60,7 @@ void Search::expandRoot(Node* root, const bool noise) {
         }
         guard.unlock();
     } else {
+        root->in_nnet.store(true);
         pushToCache(EncodedState(root, traversed, position_history).toTensor(), root);
         auto evaluation = model::evaluate(nn_cache, nnet, device);
         nn_evaluations = evaluation;
@@ -70,7 +74,17 @@ void Search::expand(Node* node) {
     auto terminal = node->get_terminal_val();
 
     std::unique_lock<std::mutex> guard(node->lock);
-    while (node->in_nnet.load()) node->nnet_cv.wait(guard);
+    // Add timeout to prevent infinite waiting
+    auto wait_result = node->nnet_cv.wait_for(guard, std::chrono::seconds(3), [node] { 
+        return !node->in_nnet.load(); 
+    });
+    
+    if (!wait_result) {
+        std::cerr << "[ERROR] Timeout waiting for neural network evaluation on node at depth " 
+                  << static_cast<int>(node->getDepth()) << std::endl;
+        // Force the node to be available if timeout occurs
+        node->in_nnet.store(false);
+    }
 
     if (terminal.first) {
         guard.unlock();
@@ -83,7 +97,7 @@ void Search::expand(Node* node) {
             expand_leaf(node, std::move(guard));
         } else {
             // For internal nodes, select the best child based on a score and recursively expand it
-            float highest_puct = std::numeric_limits<float>::lowest();
+            float highest_puct = -std::numeric_limits<float>::infinity();
             for (const auto& child : node->children) {
                 float child_val = child->puct_value();
                 if (child_val > highest_puct) {
@@ -91,19 +105,19 @@ void Search::expand(Node* node) {
                     selection = child;
                 }
             }
-
             // Ensure a proper selection and avoid bottlenecks
             if (selection == nullptr) {
                 nn_eval_request(1);
                 for (const auto& child : node->children) {
                     float child_val = child->puct_value();
-                    if (child_val > highest_puct) {
+                    if (child_val >= highest_puct) { // safe selection set, helps avoid bugs especially in positions with few moves
                         highest_puct = child_val;
                         selection = child;
                     }
                 }
                 if (selection == nullptr) {
-                    selection = node->children.front(); // safe selection set, helps avoid bugs especially in positions with few moves
+                    std::cout << "[WARNING] selection is nullptr\n";
+                    selection = node->children.front();
                 }
             }
             selection->virtual_loss = true;
@@ -145,6 +159,10 @@ std::pair<chess::Move, int> Search::selectMove(const bool verbose, double temper
     Node* selection;
     std::vector<Node*> nodes = {};
     std::vector<float> probabilities = {};
+    
+    // Precompute temperature inverse for better performance
+    const double temperature_inv = 1.0 / temperature;
+
     for (const auto &child : rootNode->children) {
         // verbose turns on move policy and value outputs to console
         if (verbose) {
@@ -162,21 +180,19 @@ std::pair<chess::Move, int> Search::selectMove(const bool verbose, double temper
                     break;
                 }
             }
-            std::cout << "Move: " << child->move << ", Visits: " << child->visits << ", Policy: " << child->policy << ", Value: " << child->value/child->visits << ", PUCT Value: " << child->puct_value() << ", M/S CPM: " << static_cast<int>(child->moves_since_cpm) << ", " << child->progress_mult << '\n';
+            std::cout << "Move: " << child->move << ", Visits: " << child->visits << ", Policy: " << child->policy << ", Value: " << child->getQ() << ", PUCT Value: " << child->puct_value() << ", M/S CPM: " << static_cast<int>(child->moves_since_cpm) << ", " << child->progress_mult << '\n';
         }
         nodes.push_back(child);
-        probabilities.push_back(std::pow((static_cast<long double>(child->visits.load())/static_cast<long double>(num_simulations)), static_cast<long double>(1/temperature)));
+        // Use precomputed temperature inverse for better performance
+        probabilities.push_back(std::pow((static_cast<long double>(child->visits.load())/static_cast<long double>(rootNode->visits.load())), static_cast<long double>(temperature_inv)));
     }
     // Use a random distribution to select a node based on the computed probabilities
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::discrete_distribution<> distr(probabilities.begin(), probabilities.end());
-    selection = nodes[distr(gen)];
+    selection = nodes[randomDiscrete(probabilities)];
 
     // Get game result (-1 if no result yet)
     int result = -1;
-    if ((selection->value/selection->visits) < -resign_threshold) {
-        if (getQ() < -resign_threshold) {result = 0;}
+    if (selection->getQ() < -resign_threshold) {
+        if (getRootQ() < -resign_threshold) {result = 0;}
     }
     else {
         if (selection->state.isGameOver().second == chess::GameResult::LOSE) {result = 2;}
@@ -253,7 +269,7 @@ std::string Search::getTopLine() {
         ++i;
     }
     while (!sel->children.empty()) {
-        float highest_val = std::numeric_limits<float>::lowest();
+        float highest_val = -std::numeric_limits<float>::infinity();
         for (const auto& child : sel->children) {
             float child_val = child->visits;
             if (child_val > highest_val) {
@@ -276,10 +292,10 @@ void Search::ThreadManager::workerSearch() {
     Node* selection = nullptr;
     auto node = search.rootNode;
     
-    ++search.rootNode->visits;
+    search.rootNode->visits.fetch_add(1, std::memory_order_relaxed);
 
     // For internal nodes, select the best child based on a score and recursively expand it
-    float highest_puct = std::numeric_limits<float>::lowest();
+    float highest_puct = -std::numeric_limits<float>::infinity();
     for (const auto& child : node->children) {
         float child_val = child->puct_value();
         if (child_val > highest_puct) {
@@ -317,7 +333,7 @@ void Search::ThreadManager::evaluateRoot(const bool noise) {
     policy_tensor = policy_tensor.to(torch::kFloat32).contiguous();
     std::memcpy(policy.data(), policy_tensor.data_ptr<float>(), search.policySize * sizeof(float));
 
-    auto move_map = policy_map::policy_to_moves(policy, node->state, search.tactic_bonus);
+    auto move_map = policy_map::policy_to_moves(policy, node->state);
     move_map = noise ? applyDirichletNoise(move_map, root_dirichlet_alpha, root_dirichlet_epsilon) : move_map;
     auto nn_eval = std::make_pair(move_map, -eval.first.second.item<float>());
     auto movelist = search.get_moves(node->state);
@@ -338,7 +354,7 @@ void Search::ThreadManager::evaluate() {
     std::vector<float> policy(search.policySize);
     policy_tensor = policy_tensor.to(torch::kFloat32).contiguous();
     std::memcpy(policy.data(), policy_tensor.data_ptr<float>(), search.policySize * sizeof(float));
-    auto move_map = policy_map::policy_to_moves(policy, node->state, search.tactic_bonus);
+    auto move_map = policy_map::policy_to_moves(policy, node->state);
     auto nn_eval = std::make_pair(move_map, -eval.first.second.item<float>());
     auto movelist = search.get_moves(node->state);
     // std::cout << "mid_eval\n";
@@ -346,8 +362,9 @@ void Search::ThreadManager::evaluate() {
         node->expand(move, move_map[move], search.container);
     }
     // std::cout << "end_eval\n";
-    node->in_nnet = false;
+    node->in_nnet.store(false);
     node->nnet_cv.notify_all();
+    // std::cout << "Thread " << std::this_thread::get_id() << " notified all!\n";
     node->backpropagate(nn_eval.second, search.container);
     search.transposition_table.addHash(node->state.hash(), nn_eval);
 }

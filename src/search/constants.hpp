@@ -2,7 +2,8 @@
 
 #include <cmath>
 #include <string>
-#include "../functions.hpp"
+#include "../utils/functions.hpp"
+#include "../chess.hpp"
 
 extern std::string model_directory;
 

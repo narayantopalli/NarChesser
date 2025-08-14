@@ -98,7 +98,7 @@ constexpr PolicyMap initializePolicyMap() {
 
 namespace policy_map {
     extern std::unique_ptr<float[]> get_move_to_policy(std::unordered_map<chess::Move, float>& move_map, chess::Color color);
-    extern std::unordered_map<chess::Move, float> policy_to_moves(const std::vector<float> policy, const chess::Board& state, bool tactic_bonus);
+    extern std::unordered_map<chess::Move, float> policy_to_moves(const std::vector<float> policy, const chess::Board& state);
 }
 
 constexpr PolicyMap policyMap = initializePolicyMap();

@@ -25,13 +25,14 @@ struct Node {
     std::vector<Node*> prev_list = {};
     float policy = 0.0f;
     std::atomic<int> visits = 0;
-    float value = 0.0f;
+    std::atomic<float> val_sum = 0.0f;
     uint8_t moves_since_cpm;
     float progress_mult = 1.0f;
+    // bool check_or_cap;
     chess::Move move;
     chess::Board state;
+    
     std::mutex lock;
-    std::mutex add_lock;
     std::mutex expand_lock;
     std::atomic<bool> in_nnet = false;
     std::atomic<bool> virtual_loss = false;
@@ -41,14 +42,14 @@ struct Node {
     inline Node* getParent() const;
     inline uint8_t getDepth() const;
     Node(Container& container, chess::Board state, uint8_t moves_since_cpm, chess::Move move = chess::Move::NULL_MOVE, std::vector<Node*> prev_list = {}, float policy = 0.0f);
-    inline float puct_value(float v_loss_c = 1.0f);
+    inline float puct_value(const float v_loss_c = 1.0f);
     inline bool is_leaf_node() const;
     std::pair<bool, float> get_terminal_val() const;
     void expand(chess::Move newMove, float policy, Container& container);
     inline void addToVal(float val);
     inline float cpmToMult(const uint8_t moves_since_cpm) const;
     void backpropagate(float val, Container& container);
-
+    inline float getQ(const float v_loss = 0.0f) const;
 };
 
 
@@ -109,29 +110,58 @@ inline uint8_t Node::getDepth() const {
     return prev_list.size();
 }
 
-inline float Node::puct_value(float v_loss_c) {
-    if (visits == 0) {
-        if (virtual_loss.load()) {
-            return std::numeric_limits<float>::lowest();
-        }
-        return std::numeric_limits<float>::max();
+inline float Node::puct_value(const float v_loss_c /* = 1.0f */) {
+    const int n = visits.load(std::memory_order_relaxed);
+    const bool vloss = virtual_loss.load(std::memory_order_relaxed);
+
+    // Unvisited nodes: encourage first visit unless someone is already “in flight”
+    if (n == 0) {
+        return vloss ? -std::numeric_limits<float>::infinity()
+                     :  std::numeric_limits<float>::infinity();
     }
 
-    float ucb = cpuct(visits) * policy * std::sqrt(static_cast<float>(getParent()->visits)) / (1 + visits);
+    const Node* parent = getParent();
+    if (parent == nullptr) {
+        std::cout << "Parent is nullptr\n";
+        return std::numeric_limits<float>::infinity();
+    }
+    const int parent_n = parent->visits.load(std::memory_order_relaxed);
 
-    return ((value*progress_mult - v_loss_c * virtual_loss.load())/ visits) + ucb;
+    // Treat virtual loss as extra temporary visits on this edge only
+    const float v_loss = vloss ? v_loss_c : 0.0f;
+    const float denom  = 1.0f + static_cast<float>(n) + v_loss;
+
+    // U term uses parent count (matches sqrt(N_parent) form)
+    const float U = cpuct(parent_n) * policy *
+                    std::sqrt(static_cast<float>(parent_n)) / denom;
+
+    return getQ(v_loss) * progress_mult + U;
 }
 
 inline bool Node::is_leaf_node() const {
     return children.empty();
 }
 
-inline void Node::addToVal(float val) {
-    std::lock_guard<std::mutex> guard(add_lock);
-    value+=val;
+inline void Node::addToVal(const float val) {
+    val_sum.fetch_add(val, std::memory_order_relaxed);
 }
 
+/*
+    @return Progress multiplier based on moves since Capture/Pawn Move
+    @param moves_since_cpm: Number of moves since the last Capture/Pawn Move
+*/
 inline float Node::cpmToMult(const uint8_t moves_since_cpm) const {
     uint8_t interval = 100 - std::min(100, static_cast<int>(moves_since_cpm));
     return 1.0/(1.0 + exp(0.08*(25.0-static_cast<float>(interval))));
+}
+
+/*
+    @return Q value of the node
+    @param v_loss: Virtual loss
+*/
+inline float Node::getQ(const float v_loss) const {
+    const int n = visits.load(std::memory_order_relaxed);
+    if (n <= 0) return 0.0f;
+    const float w = val_sum.load(std::memory_order_relaxed);
+    return w/(n + v_loss);
 }

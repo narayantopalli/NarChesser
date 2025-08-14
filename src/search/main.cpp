@@ -3,11 +3,78 @@
 #include "search.hpp"
 #include "..\selfplay\selfplay.hpp"
 #include "..\config.hpp"
+#include "..\utils\functions.hpp"
 #include <chrono>
 #include <torch/script.h>
 #include <torch/torch.h>
 #include <fstream>
 #include <filesystem>
+
+#ifdef _WIN32
+#include <windows.h>
+#include <shellapi.h>
+#include <iostream>
+// Undefine the max macro to prevent conflicts with std::numeric_limits
+#undef max
+#else
+#include <cstdlib>
+#include <iostream>
+#endif
+
+// Function to check if running as administrator and request elevation if needed
+#ifdef _WIN32
+bool isRunningAsAdmin() {
+    BOOL isAdmin = FALSE;
+    PSID adminGroup = NULL;
+    SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
+    
+    if (AllocateAndInitializeSid(&ntAuthority, 2, SECURITY_BUILTIN_DOMAIN_RID,
+        DOMAIN_ALIAS_RID_ADMINS, 0, 0, 0, 0, 0, 0, &adminGroup)) {
+        CheckTokenMembership(NULL, adminGroup, &isAdmin);
+        FreeSid(adminGroup);
+    }
+    
+    return isAdmin != FALSE;
+}
+
+bool requestAdminPrivileges() {
+    if (isRunningAsAdmin()) {
+        return true; // Already running as admin
+    }
+    
+    // Get the executable path
+    char szPath[MAX_PATH];
+    if (GetModuleFileNameA(NULL, szPath, MAX_PATH) == 0) {
+        std::cerr << "Failed to get executable path" << std::endl;
+        return false;
+    }
+    
+    // Prepare the ShellExecuteInfo structure
+    SHELLEXECUTEINFOA sei = {0};
+    sei.cbSize = sizeof(SHELLEXECUTEINFOA);
+    sei.lpVerb = "runas";  // This requests elevation
+    sei.lpFile = szPath;
+    sei.hwnd = NULL;
+    sei.nShow = SW_NORMAL;
+    
+    // Execute the program with elevated privileges
+    if (ShellExecuteExA(&sei)) {
+        std::cout << "Requesting administrator privileges..." << std::endl;
+        std::cout << "Please accept the UAC prompt to run as administrator." << std::endl;
+        return true;
+    } else {
+        DWORD error = GetLastError();
+        if (error == ERROR_CANCELLED) {
+            std::cout << "Administrator privileges request was cancelled by user." << std::endl;
+        } else {
+            std::cerr << "Failed to request administrator privileges. Error code: " << error << std::endl;
+        }
+        return false;
+    }
+}
+
+
+#endif
 
 std::array<std::string, 8> test_positions = 
                 {"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -21,7 +88,7 @@ std::array<std::string, 8> test_positions =
 
 void selfPlay(torch::jit::script::Module& nnet, torch::Device device) {
 
-    unsigned int total_games, num_simulations, nn_cache_size, tactic_bonus;
+    unsigned int total_games, num_simulations, nn_cache_size;
 
     std::cout << "Enter the total number of self-play games: ";
     std::cin >> total_games;
@@ -32,9 +99,7 @@ void selfPlay(torch::jit::script::Module& nnet, torch::Device device) {
     std::cout << "Enter the eval cache size (higher values will give more breadth but less depth to search and potentially faster training): ";
     std::cin >> nn_cache_size;
 
-    std::cout << "Train tactics (not fully reliable): ";
-    std::cin >> tactic_bonus;
-    bool tb = static_cast<bool>(tactic_bonus);
+    clearTerminal();
 
     std::cout << "Total games: " << total_games << std::endl;
     std::cout << "Number of simulations: " << num_simulations << std::endl;
@@ -42,9 +107,8 @@ void selfPlay(torch::jit::script::Module& nnet, torch::Device device) {
     std::cout << "Number of threads: " << thread_count << std::endl;
     std::cout << "Win threshold: " << resign_eval_threshold << std::endl;
     std::cout << "Starting temperature: " << temperature_start << std::endl;
-    std::cout << "Train tactics: " << tb << std::endl;
 
-    auto self_play = SelfPlay(total_games, num_simulations, thread_count, resign_eval_threshold, nn_cache_size, true, nnet, device, transposition_table_size, temperature_start, tb);
+    auto self_play = SelfPlay(total_games, num_simulations, thread_count, resign_eval_threshold, nn_cache_size, true, nnet, device, transposition_table_size, temperature_start);
     std::cout << "transposition table size: " << self_play.transposition_table.max_elements << " positions\n";
     self_play.run();
 }
@@ -75,6 +139,7 @@ void testPosition(torch::jit::script::Module& nnet, torch::Device device) {
             std::cout << "Invalid Position.\n";
         }
     }
+    clearTerminal();
 
     TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>> transposition_table;
     transposition_table.set_size(transposition_table_size);
@@ -84,11 +149,12 @@ void testPosition(torch::jit::script::Module& nnet, torch::Device device) {
     std::cout << startState << "\n";
     Container container;
     auto rootNode = new Node(container, startState, 0);
-    auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, true, false);
+    auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, true);
     newSearch.startSearch(true, true, std::chrono::seconds(time_per_move));
 
-    auto white_win_prob = newSearch.getQ()*(1-2*static_cast<int>(startState.sideToMove()));
+    auto white_win_prob = newSearch.getRootQ()*(1-2*static_cast<int>(startState.sideToMove()));
     auto topLine = newSearch.getTopLine();
+    std::cout << "\n--------------------------------\n";
     auto move = newSearch.selectMove(true, temperature_end);
     std::cout << "Engine Top Line:\n" << topLine << ", Evaluation = " << probability_to_centipawn(white_win_prob) << '\n';
 }
@@ -100,13 +166,14 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
     std::cout << "Enter AI thinking time per move: ";
     std::cin >> time_per_move;
 
-    std::cout << "Show Engine Top Line (enter 0 for no): ";
+    std::cout << "Show Engine Verbose (enter 0 for no): ";
     std::cin >> show_tl;
 
     bool tl = static_cast<bool>(show_tl);
 
     int side = -1;
     bool myTurn;
+    clearTerminal();
     while (true) {
         std::cout << "White(0) or Black(1): ";
         std::cin >> side;
@@ -126,13 +193,27 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
     chess::Board startState = chess::Board(test_positions[0]);
     TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>> transposition_table;
     transposition_table.set_size(transposition_table_size);
-    std::cout << "transposition table size: " << transposition_table.max_elements << " positions\n";
+    std::vector<chess::Move> moves = {};
     std::vector<chess::Board> traversed = {};
     unsigned int num_simulations = 10000, nn_cache_size = 256;
 
+    clearTerminal();
     std::cout << startState << "\n";
     uint8_t progress = 0;
     for (int turns = 0; turns < 256; ++turns) {
+        if (startState.isGameOver().second == chess::GameResult::DRAW) {
+            std::cout << "DRAW\n";
+            break;
+        }
+        if (startState.isGameOver().second == chess::GameResult::LOSE) {
+            if (startState.sideToMove() == chess::Color::WHITE) {
+                std::cout << "BLACK WINS!\n";
+            }
+            else {
+                std::cout << "WHITE WINS!\n";
+            }
+            break;
+        }
         while (!myTurn) {
             // basic turn dynamics
             std::cout << "Enter your move: ";
@@ -146,7 +227,14 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
                     progress += 1;
                 }
                 startState.makeMove(m);
+                moves.push_back(m);
                 traversed.push_back(startState);
+                clearTerminal();
+                std::cout << "Game History: ";
+                for (auto& m : moves) {
+                    std::cout << m << " ";
+                }
+                std::cout << "\n--------------------------------\n";
                 std::cout << startState << "\n";
                 myTurn = true;
             }
@@ -156,14 +244,21 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
         }
         Container container;
         auto rootNode = new Node(container, startState, progress);
-        auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, true, false);
+        auto newSearch = Search(rootNode, container, traversed, transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, true);
         newSearch.startSearch(true, true, std::chrono::seconds(time_per_move));
 
-        auto white_win_prob = newSearch.getQ()*(1-2*static_cast<int>(startState.sideToMove()));
+        auto white_win_prob = newSearch.getRootQ()*(1-2*static_cast<int>(startState.sideToMove()));
         auto topLine = newSearch.getTopLine();
-        auto move = newSearch.selectMove(true, temperature_end);
-        std::cout << "move made: " << move.first << "\n";
+        clearTerminal();
+        std::cout << "Game History: ";
+        for (auto& m : moves) {
+            std::cout << m << " ";
+        }
+        std::cout << "\n--------------------------------\n";
+        auto move = newSearch.selectMove(tl, temperature_end);
+        std::cout << "Move Played: " << move.first << "\n--------------------------------\n";
         startState.makeMove(move.first);
+        moves.push_back(move.first);
         std::cout << startState << "\n";
         progress = newSearch.rootNode->moves_since_cpm;
         startState = newSearch.rootNode->state;
@@ -208,6 +303,8 @@ void testGame(torch::jit::script::Module& nnet, torch::jit::script::Module& old_
             std::cout << "Invalid Position.\n";
         }
     }
+    clearTerminal();
+
     auto p1Color = chess::Color::WHITE;
     TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>> new_transposition_table;
     TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>> old_transposition_table;
@@ -238,18 +335,18 @@ void testGame(torch::jit::script::Module& nnet, torch::jit::script::Module& old_
             if (!myTurn) {
                 Container container;
                 auto rootNode = new Node(container, startState, progress);
-                auto newSearch = Search(rootNode, container, traversed, old_transposition_table, old_nnet, device, num_simulations, thread_count, nn_cache_size, false, false);
+                auto newSearch = Search(rootNode, container, traversed, old_transposition_table, old_nnet, device, num_simulations, thread_count, nn_cache_size, false);
                 newSearch.startSearch(true);
-                std::cout << "P2 Turn, eval = " << probability_to_centipawn(newSearch.getQ()*(1-2*static_cast<int>(startState.sideToMove()))) << ", move - ";
+                std::cout << "P2 Turn, eval = " << probability_to_centipawn(newSearch.getRootQ()*(1-2*static_cast<int>(startState.sideToMove()))) << ", move - ";
                 move = newSearch.selectMove(false, temperature_end, resign_eval_threshold);
                 progress = newSearch.rootNode->moves_since_cpm;
             }
             else if (myTurn) {
                 Container container;
                 auto rootNode = new Node(container, startState, progress);
-                auto newSearch = Search(rootNode, container, traversed, new_transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, false, false);
+                auto newSearch = Search(rootNode, container, traversed, new_transposition_table, nnet, device, num_simulations, thread_count, nn_cache_size, false);
                 newSearch.startSearch(true);
-                std::cout << "P1 Turn, eval = " << probability_to_centipawn(newSearch.getQ()*(1-2*static_cast<int>(startState.sideToMove()))) << ", move - ";
+                std::cout << "P1 Turn, eval = " << probability_to_centipawn(newSearch.getRootQ()*(1-2*static_cast<int>(startState.sideToMove()))) << ", move - ";
                 move = newSearch.selectMove(false, temperature_end, resign_eval_threshold);
                 progress = newSearch.rootNode->moves_since_cpm;
             }
@@ -298,17 +395,17 @@ void testGame(torch::jit::script::Module& nnet, torch::jit::script::Module& old_
         // Once the game is over, write the PGN data to a file
         std::ofstream pgn_file(directoryPath + "/game_" + std::to_string(game) + ".pgn");
 
-        pgn_file << "[Event \"test game\"]\n";
+        pgn_file << "[Event \"TEST GAME\"]\n";
         pgn_file << "[Site \"?\"]\n";
         pgn_file << "[Date \"????.??.??\"]\n";
         pgn_file << "[Round \"?\"]\n";
         if (p1Color == chess::Color::WHITE) {
-            pgn_file << "[White \"New NNet\"]\n";
-            pgn_file << "[Black \"Old NNet\"]\n";
+            pgn_file << "[White \"NarChesser\"]\n";
+            pgn_file << "[Black \"NarChesser\"]\n";
         }
         else {
-            pgn_file << "[White \"Old NNet\"]\n";
-            pgn_file << "[Black \"New NNet\"]\n";
+            pgn_file << "[White \"NarChesser\"]\n";
+            pgn_file << "[Black \"NarChesser\"]\n";
         }
         pgn_file << "[Result \"" + result_string + "\"]\n\n";
         // Write the moves
@@ -326,19 +423,24 @@ std::string findModel(std::string directory_path) {
     std::string model_path;
 
     if (!std::filesystem::exists(directory_path) || !std::filesystem::is_directory(directory_path)) {
-        std::cerr << "Directory does not exist." << std::endl;
+        std::cerr << "Directory does not exist: " << directory_path << std::endl;
+        return "";
     }
 
     for (const auto& entry : std::filesystem::directory_iterator(directory_path)) {
         const auto& path = entry.path();
         if (std::filesystem::is_regular_file(path)) {
-            model_path = path.string();
-            break;
+            std::string extension = path.extension().string();
+            // Only consider files with common model extensions
+            if (extension == ".pt" || extension == ".pth" || extension == ".model") {
+                model_path = path.string();
+                break;
+            }
         }
     }
 
     if (model_path.empty()) {
-        std::cerr << "No files found in the directory." << std::endl;
+        std::cerr << "No model files (.pt, .pth, .model) found in directory: " << directory_path << std::endl;
     } else {
         std::cout << "Model path set to: " << model_path << std::endl;
     }
@@ -348,6 +450,25 @@ std::string findModel(std::string directory_path) {
 
 int main() {
 
+#ifdef _WIN32
+    // Check if running as administrator and request elevation if needed
+    if (!isRunningAsAdmin()) {
+        std::cout << "This program requires administrator privileges to run properly." << std::endl;
+        std::cout << "Attempting to request administrator privileges..." << std::endl;
+        
+        if (requestAdminPrivileges()) {
+            // Exit current instance - the elevated instance will continue
+            return 0;
+        } else {
+            std::cout << "Failed to obtain administrator privileges. Program may not function correctly." << std::endl;
+            std::cout << "Press Enter to continue anyway, or close the program..." << std::endl;
+            std::cin.get();
+        }
+    } else {
+        std::cout << "Running with administrator privileges." << std::endl;
+    }
+#endif
+
     ConfigParser parser("params.txt");
     parser.config_params();
     
@@ -355,6 +476,12 @@ int main() {
 
     // _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
     std::string model_path = findModel(model_directory + "/current_model");
+    if (model_path.empty()) {
+        std::cerr << "Failed to find model file in: " << model_directory + "/current_model" << std::endl;
+        std::cerr << "Please ensure there is a .pt, .pth, or .model file in the current_model directory." << std::endl;
+        return -1;
+    }
+    
     // Load the model
     torch::jit::script::Module nnet;
     try {
@@ -395,30 +522,39 @@ int main() {
         std::cin >> choice;
 
         if (choice == 0) {
+            clearTerminal();
             selfPlay(nnet, device);
             break;
         }
         else if (choice == 1) {
+            clearTerminal();
             humanGame(nnet, device);
             break;
         }
         else if (choice == 2) {
+            clearTerminal();
             std::string old_model_path = findModel(model_directory + "/old_model");
+            if (old_model_path.empty()) {
+                std::cerr << "Failed to find old model file in: " << model_directory + "/old_model" << std::endl;
+                std::cerr << "Please ensure there is a .pt, .pth, or .model file in the old_model directory." << std::endl;
+                return -1;
+            }
+            
             // Load the model
             torch::jit::script::Module old_nnet;
 
             try {
                 old_nnet = torch::jit::load(old_model_path);
-                std::cout << "Model loaded successfully\n";
+                std::cout << "Old model loaded successfully\n";
 
             } catch (const c10::Error& e) {
-                std::cerr << "LibTorch error loading the model: " << e.what() << std::endl;
+                std::cerr << "LibTorch error loading the old model: " << e.what() << std::endl;
                 return -1;
             } catch (const std::exception& e) {
-                std::cerr << "Standard exception while loading the model: " << e.what() << std::endl;
+                std::cerr << "Standard exception while loading the old model: " << e.what() << std::endl;
                 return -1;
             } catch (...) {
-                std::cerr << "Unknown error loading the model\n";
+                std::cerr << "Unknown error loading the old model\n";
                 return -1;
             }
 
@@ -428,6 +564,7 @@ int main() {
             break;
         }
         else if (choice == 3) {
+            clearTerminal();
             testPosition(nnet, device);
             break;
         }
@@ -436,9 +573,17 @@ int main() {
         }
     }
 
-    std::string exitInput;
-    std::cout << "Press enter to exit.";
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    std::getline(std::cin, exitInput);
+    std::cout << "\n--------------------------------\n";
+    std::cout << "Press 'r' to restart program or 'q' to quit: ";
+    
+    char exit_choice;
+    std::cin >> exit_choice;
+    
+    if (exit_choice == 'r' || exit_choice == 'R') {
+        clearTerminal();
+        std::cout << "Restarting program...\n";
+        return main(); // Restart the program
+    }
+    
     return 0;
 }
