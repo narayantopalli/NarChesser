@@ -7,9 +7,9 @@
 #include "play_policy_map.hpp"
 #include "transposition_table.hpp"
 #include "threadpool.hpp"
-#include "../utils/functions.hpp"
-#include "../nnet/encoder.hpp"
-#include "../nnet/nnet.hpp"
+#include "include/utils/functions.hpp"
+#include "include/model/encoder.hpp"
+#include "include/model/model.hpp"
 
 class Search {
 

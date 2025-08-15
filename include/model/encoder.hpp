@@ -1,8 +1,8 @@
 #pragma once
 
 #include <torch/script.h>
-#include "../planes.hpp"
-#include "../search/node.hpp"
+#include "include/planes.hpp"
+#include "include/search/node.hpp"
 
 struct EncodedState {
     std::unique_ptr<Bitboard[]> encodedState;

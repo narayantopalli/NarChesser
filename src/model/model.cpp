@@ -1,15 +1,9 @@
-#pragma once
-
-#include <iostream>
-#include <vector>
-#include <mutex>
-#include <torch/script.h>
-#include <torch/torch.h>
+#include "include/model/model.hpp"
 
 namespace model {
-    extern std::mutex gpu_lock;
-    inline std::queue<std::pair<torch::Tensor, torch::Tensor>> evaluate(std::queue<torch::Tensor> inputs_tensor, torch::jit::script::Module module, const torch::Device device) {
-        std::lock_guard<std::mutex> guard(gpu_lock); // prevents overflowing gpu on multiple threads
+    std::mutex device_lock;
+    std::queue<std::pair<torch::Tensor, torch::Tensor>> evaluate(std::queue<torch::Tensor> inputs_tensor, torch::jit::script::Module module, const torch::Device device) {
+        std::lock_guard<std::mutex> guard(device_lock); // prevents overflowing device on multiple threads
         torch::NoGradGuard no_grad;
         module.eval();
 

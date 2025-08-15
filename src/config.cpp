@@ -1,5 +1,5 @@
-#include "config.hpp"
-#include "search/constants.hpp"
+#include "include/config.hpp"
+#include "include/search/constants.hpp"
 
 void ConfigParser::parseConfigFile(const std::string& filename) {
         std::ifstream configFile(filename);

@@ -3,7 +3,7 @@
 #include <map>
 #include <list>
 #include <mutex>
-#include "..\chess.hpp"
+#include "include/chess.hpp"
 
 template<typename K, typename V>
 class TranspositionTable {

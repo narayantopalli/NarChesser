@@ -1,5 +1,5 @@
 #pragma once
-#include "../chess.hpp"
+#include "include/chess.hpp"
 #include <memory>
 #include <array>
 #include <map>

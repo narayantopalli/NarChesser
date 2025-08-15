@@ -1,5 +1,5 @@
-#include "search.hpp"
-#include "../utils/random.hpp"
+#include "include/search/search.hpp"
+#include "include/utils/random.hpp"
 
 Search::Search(Node* rootNode, Container& container, std::vector<chess::Board>& traversed,
                TranspositionTable<uint64_t, std::pair<std::unordered_map<chess::Move, float>, float>>& transposition_table, 

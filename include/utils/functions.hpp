@@ -7,7 +7,7 @@
 #include <numeric>
 #include <unordered_map>
 #include <iostream>
-#include "random.hpp"
+#include "include/utils/random.hpp"
 
 // Cross-platform terminal clearing function
 inline void clearTerminal() {

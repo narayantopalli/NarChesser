@@ -1,5 +1,5 @@
 #pragma once
-#include "../search/search.hpp"
+#include "include/search/search.hpp"
 
 struct SelfPlay {
     std::string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

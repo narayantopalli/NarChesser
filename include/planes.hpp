@@ -1,7 +1,7 @@
 #pragma once
 
-#include "chess.hpp"
-#include "manipulators.hpp"
+#include "include/chess.hpp"
+#include "include/manipulators.hpp"
 #include <vector>
 #include <array>
 #include <memory> 

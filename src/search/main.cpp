@@ -1,9 +1,9 @@
 // #include <crtdbg.h>
 
-#include "search.hpp"
-#include "..\selfplay\selfplay.hpp"
-#include "..\config.hpp"
-#include "..\utils\functions.hpp"
+#include "include/search/search.hpp"
+#include "include/selfplay/selfplay.hpp"
+#include "include/config.hpp"
+#include "include/utils/functions.hpp"
 #include <chrono>
 #include <torch/script.h>
 #include <torch/torch.h>
@@ -202,15 +202,15 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
     uint8_t progress = 0;
     for (int turns = 0; turns < 256; ++turns) {
         if (startState.isGameOver().second == chess::GameResult::DRAW) {
-            std::cout << "DRAW\n";
+            std::cout << "\n=== DRAW ===\n";
             break;
         }
         if (startState.isGameOver().second == chess::GameResult::LOSE) {
             if (startState.sideToMove() == chess::Color::WHITE) {
-                std::cout << "BLACK WINS!\n";
+                std::cout << "\n=== BLACK WINS ===\n";
             }
             else {
-                std::cout << "WHITE WINS!\n";
+                std::cout << "\n=== WHITE WINS ===\n";
             }
             break;
         }
@@ -264,9 +264,6 @@ void humanGame(torch::jit::script::Module& nnet, torch::Device device) {
         startState = newSearch.rootNode->state;
 
         if (tl) { std::cout << "Engine Top Line:\n" << topLine << ", Evaluation = " << probability_to_centipawn(white_win_prob) << '\n'; }
-        if (move.second != -1) {
-            break;
-        }
         myTurn = false;
     }
 }

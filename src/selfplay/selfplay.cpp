@@ -6,9 +6,9 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
-#include "selfplay.hpp"
-#include "../utils/random.hpp"
-#include "../utils/functions.hpp"
+#include "include/selfplay/selfplay.hpp"
+#include "include/utils/random.hpp"
+#include "include/utils/functions.hpp"
 
 
 
@@ -41,7 +41,7 @@ void SelfPlay::run() {
         std::this_thread::sleep_for(std::chrono::seconds(5));
         
         clearTerminal();
-        std::cout << "=== NarChesser SelfPlay Progress ===\n";
+        std::cout << "=== Self-Play Progress ===\n";
         std::cout << "Total Games: " << total_games << "\n";
         std::cout << "Completed Games: " << game_index - threads << "\n";
         

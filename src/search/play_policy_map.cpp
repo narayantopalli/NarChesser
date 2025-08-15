@@ -1,5 +1,5 @@
-#include "play_policy_map.hpp"
-#include "../utils/functions.hpp"
+#include "include/search/play_policy_map.hpp"
+#include "include/utils/functions.hpp"
 
 std::unique_ptr<float[]> policy_map::get_move_to_policy(std::unordered_map<chess::Move, float>& move_map, chess::Color color) {
 

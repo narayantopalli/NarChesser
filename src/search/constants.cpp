@@ -1,4 +1,4 @@
-#include "constants.hpp"
+#include "include/search/constants.hpp"
 
 std::string model_directory = "";
 float resign_eval_threshold = 0.0;

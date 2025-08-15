@@ -1,4 +1,4 @@
-#include "encoder.hpp"
+#include "include/model/encoder.hpp"
 
 // Function to encode the state of a chess board into an array of Bitboards
 EncodedState::EncodedState(const Node* node, const std::vector<chess::Board>& traversed, const uint8_t history) : history(history) {

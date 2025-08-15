@@ -8,7 +8,7 @@
 #include <functional>
 #include <chrono>
 #include <future>
-#include "constants.hpp"
+#include "include/search/constants.hpp"
 
 class ThreadPool {
 public:

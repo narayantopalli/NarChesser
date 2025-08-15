@@ -13,8 +13,8 @@
 #include <algorithm>
 #include <condition_variable>
 #include "constants.hpp"
-#include "../chess.hpp"
-#include "../planes.hpp"
+#include "include/chess.hpp"
+#include "include/planes.hpp"
 
 class Node;
 class Container;

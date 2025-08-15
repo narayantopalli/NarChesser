@@ -1,4 +1,4 @@
-#include "planes.hpp"
+#include "include/planes.hpp"
 
 // creates a set of board representation planes for a position
 std::unique_ptr<Bitboard[]> planes::toPlane(const Board& board, Color color) {
